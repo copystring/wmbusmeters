@@ -116,6 +116,9 @@ bool DriverDynamic::load(DriverInfo *di, const string &file_name, const char *co
         return false;
     }
 
+    // Add the TPL flags and others declared in library.xmq
+    di->addDefaultFlags();
+
     try
     {
         string name = check_driver_name(xmqGetString(doc, "/driver/name"), file);
@@ -151,6 +154,7 @@ bool DriverDynamic::load(DriverInfo *di, const string &file_name, const char *co
         xmqForeach(doc, "/driver/compact_frame_formats/difvif", (XMQNodeCallback)add_compact_frame_format, di);
         xmqForeach(doc, "/driver/mfct_tpl_status_bits", (XMQNodeCallback)add_mfct_tpl_status, di);
         xmqForeach(doc, "/driver/default_keys/key", (XMQNodeCallback)add_default_key, di);
+        xmqForeach(doc, "/driver/flags/flag", (XMQNodeCallback)add_flag, di);
 
         if (!deprecated_by)
         {
@@ -742,7 +746,6 @@ XMQProceed DriverDynamic::add_combinable_raw(XMQDoc *doc, XMQNode *match, Driver
 
    map {
        name  = SURGE
-       info  = 'Unexpected increase in pressure in relation to average pressure.'
        value = 0x02
        test  = set
    }
@@ -760,11 +763,28 @@ uint64_t checked_map_from(XMQDoc *doc, XMQNode *map, DriverDynamic *dd)
 
 XMQProceed DriverDynamic::add_map(XMQDoc *doc, XMQNode *map, DriverDynamic *dd)
 {
-    const char *name = xmqGetStringRel(doc, "name", map);
+    const char *name_s = xmqGetStringRel(doc, "name", map);
+    if (!name_s)
+    {
+        warning("(driver) a map must have a flag name.\n",
+                dd->driverInfo()->getDynamicFileName().c_str());
+        return XMQ_CONTINUE;
+    }
+
+    if (dd->driverInfo()->hasFlagsInDriver() &&
+        dd->tmp_rule_->type == Translate::MapType::BitToString &&
+        !dd->driverInfo()->hasFlag(name_s))
+    {
+        warning("(driver) trying to use (%s) in a map but it is not declared in flags {...}.\n",
+                name_s,
+                dd->driverInfo()->getDynamicFileName().c_str());
+        return XMQ_CONTINUE;
+    }
+
     uint64_t value = checked_map_from(doc, map, dd);
     TestBit test_type = checked_test_type(xmqGetStringRel(doc, "test", map), dd);
 
-    dd->tmp_rule_->add(Translate::Map(value, name, test_type));
+    dd->tmp_rule_->add(Translate::Map(value, name_s, test_type));
 
     return XMQ_CONTINUE;
 }
@@ -785,6 +805,16 @@ XMQProceed DriverDynamic::add_inherited_map(XMQDoc *doc, XMQNode *map, DriverDyn
 
     const char *name = xmqGetStringRel(doc, "name", map);
     TestBit test_type = checked_test_type(xmqGetStringRel(doc, "test", map), dd);
+
+    if (dd->driverInfo()->hasFlagsInDriver() &&
+        dd->tmp_rule_->type == Translate::MapType::BitToString &&
+        !dd->driverInfo()->hasFlag(name))
+    {
+        warning("(driver) trying to use (%s) in a template map but it is not declared in flags {...}.\n",
+                name,
+                dd->driverInfo()->getDynamicFileName().c_str());
+        return XMQ_CONTINUE;
+    }
 
     dd->tmp_rule_->add(Translate::Map(value, name, test_type));
 
@@ -921,6 +951,34 @@ XMQProceed DriverDynamic::add_default_key(XMQDoc *doc, XMQNode *node, DriverInfo
         return XMQ_CONTINUE;
     }
     di->addDefaultKey(key);
+    return XMQ_CONTINUE;
+}
+
+XMQProceed DriverDynamic::add_flag(XMQDoc *doc, XMQNode *node, DriverInfo *di)
+{
+    di->markHasFlagsInDriver();
+
+    const char *name_s = xmqGetStringRel(doc, "name", node);
+    if (!name_s)
+    {
+        warning("(driver) a declared flag must have a name.\n",
+                di->getDynamicFileName().c_str());
+        return XMQ_CONTINUE;
+    }
+    string name = name_s;
+    const char *info_s = xmqGetStringRel(doc, "info", node); // Is optional.
+    if (!info_s) info_s = "";
+    string info = info_s;
+
+    if (di->hasFlag(name))
+    {
+        warning("(driver) trying to declare flag %s twice.\n",
+                name_s,
+                di->getDynamicFileName().c_str());
+        return XMQ_CONTINUE;
+    }
+    di->addFlag(name, info);
+
     return XMQ_CONTINUE;
 }
 

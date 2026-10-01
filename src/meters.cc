@@ -2105,7 +2105,7 @@ string MeterCommonImplementation::getStatusField(FieldInfo *fi)
     string value = sf.value;
 
     // This is >THE< status field, only one is allowed.
-    // Look for other fields with the JOIN_INTO_STATUS marker.
+    // Look for other fields with the INJECT_INTO_STATUS marker.
     // These other fields will not be printed, instead
     // joined into this status field.
     for (FieldInfo &f : field_infos_)
@@ -2247,7 +2247,7 @@ string MeterCommonImplementation::getStringValue(FieldInfo *fi)
     if (fi->printProperties().hasSTATUS())
     {
         // This is >THE< status field, only one is allowed.
-        // Look for other fields with the JOIN_INTO_STATUS marker.
+        // Look for other fields with the INJECT_INTO_STATUS marker.
         // These other fields will not be printed, instead
         // joined into this status field.
         for (FieldInfo &f : field_infos_)

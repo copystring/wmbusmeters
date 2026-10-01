@@ -157,6 +157,7 @@ private:
     DriverName name_; // auto, unknown, amiplus, lse_07_17, multical21 etc
     std::string deprecated_by_; // "ultrimisv2 upgrade before 2027-01-01"
     std::vector<DriverName> name_aliases_; // Secondary names that will map to this driver.
+    std::map<std::string,std::string> flags_; // Flags map to infos here.
     LinkModeSet linkmodes_; // C1, T1, S1 or combinations thereof.
     Translate::Lookup mfct_tpl_status_bits_; // Translate any mfct specific bits in tpl status.
     MeterType type_; // Water, Electricity etc.
@@ -171,6 +172,7 @@ private:
     std::string dynamic_source_xmq_ {}; // A copy of the xmq used to create a dynamic driver.
     std::vector<std::pair<uint16_t,std::vector<uchar>>> compact_frame_formats_;
     std::vector<std::vector<uchar>> default_keys_; // Default keys from driver XMQ; tried in order when no meter key is set.
+    bool has_flags_in_driver_ = false;
 
 public:
     ~DriverInfo();
@@ -187,6 +189,12 @@ public:
     void addMVT(uint16_t mfct, uchar type, uchar ver) { mvts_.push_back({ mfct, ver, type }); }
     void addCompactFrameFormat(uint16_t sig, std::vector<uchar> difvif) { compact_frame_formats_.push_back({ sig, std::move(difvif) }); }
     const std::vector<std::pair<uint16_t,std::vector<uchar>>> &compactFrameFormats() { return compact_frame_formats_; }
+    void addDefaultFlags();
+    void markHasFlagsInDriver() { has_flags_in_driver_ = true; }
+    bool hasFlagsInDriver() { return has_flags_in_driver_; }
+    void addFlag(const std::string &name, const std::string &info) { if (flags_.count(name) == 0) flags_[name] = info; }
+    bool hasFlag(const std::string &name) { return flags_.count(name) > 0; }
+    std::string getFlagInfo(const std::string &name) { if (flags_.count(name) == 0) return ""; return flags_[name]; }
     void addDefaultKey(const std::vector<uchar> &key) { default_keys_.push_back(key); }
     const std::vector<std::vector<uchar>> &defaultKeys() const { return default_keys_; }
     void usesProcessContent() { has_process_content_ = true; }

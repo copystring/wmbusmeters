@@ -315,3 +315,13 @@ cat >> "$OUT" <<EOF
     return true;
 }
 EOF
+
+cat >> $OUT <<EOF
+
+void DriverInfo::addDefaultFlags()
+{
+EOF
+
+xmq library.xmq for-each /library/flags/flag --shell="printf \"    addFlag(\\\"\${name}\\\", \\\"\${info}\\\");\\n\" >> $OUT"
+
+echo "}" >> $OUT

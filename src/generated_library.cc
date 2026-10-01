@@ -595,3 +595,14 @@ bool MeterCommonImplementation::addOptionalLibraryFields(string field_names)
     }
     return true;
 }
+
+void DriverInfo::addDefaultFlags()
+{
+    addFlag("BUSY", "Meter busy.");
+    addFlag("ERROR", "Meter error; details via error reporting.");
+    addFlag("ALARM", "Abnormal condition/alarm.");
+    addFlag("POWER_LOW", "Power low.");
+    addFlag("PERMANENT_ERROR", "Permanent meter error.");
+    addFlag("TEMPORARY_ERROR", "Temporary meter error.");
+    addFlag("FAILED_DECODE", "The telegram failed a manufacturer specific decode or decryption.");
+}
