@@ -604,5 +604,5 @@ void DriverInfo::addDefaultFlags()
     addFlag("POWER_LOW", "Power low. (tpl sts)");
     addFlag("PERMANENT_ERROR", "Permanent meter error. (tpl sts)");
     addFlag("TEMPORARY_ERROR", "Temporary meter error. (tpl sts)");
-    addFlag("FAILED_DECODE", "The telegram failed a manufacturer specific decode or decryption. (wmbusmeters)");
+    addFlag("FAILED_DECODE", "The telegram failed a manufacturer specific decode or decryption.");
 }

@@ -33,27 +33,27 @@ library {
         // The error flag is defined in  [EN 13757-7:2018 §7.5.6; EN 13757-3:2018 §10; OMS Vol.2 §8.8].
         flag {
             name = BUSY
-            info = 'Meter busy.'
+            info = 'Meter busy. (tpl sts)'
         }
         flag {
             name = ERROR
-            info = 'Meter error; details via error reporting.'
+            info = 'Meter error; details via error reporting. (tpl sts)'
         }
         flag {
             name = ALARM
-            info = 'Abnormal condition/alarm.'
+            info = 'Abnormal condition/alarm. (tpl sts)'
         }
         flag {
             name = POWER_LOW
-            info = 'Power low.'
+            info = 'Power low. (tpl sts)'
         }
         flag {
             name = PERMANENT_ERROR
-            info = 'Permanent meter error.'
+            info = 'Permanent meter error. (tpl sts)'
         }
         flag {
             name = TEMPORARY_ERROR
-            info = 'Temporary meter error.'
+            info = 'Temporary meter error. (tpl sts)'
         }
         // The following flag is wmbusmeters specific.
         flag {

@@ -74,8 +74,8 @@ driver {
             info = 'No flow of water has occurred for the last 15 days.'
         }
         flag {
-           name = LOW_AMBIENT_TEMPERATURE
-           info = 'The ambient temperature is below the configured lower temperature limit.'
+            name = LOW_AMBIENT_TEMPERATURE
+            info = 'The ambient temperature is below the configured lower temperature limit.'
         }
         flag {
             name = HIGH_AMBIENT_TEMPERATURE
