@@ -1591,6 +1591,17 @@ void MeterCommonImplementation::buildOutputDoc(XMQDoc *doc,
 
         string mvts = extractMVTs(t);
         xmqAddKeyValue(doc, details, "mvt", mvts.c_str(), NS_PARENT);
+
+        rn = xmqAddElement(doc, details, "flags", NS_PARENT);
+        assert(rn.status == XMQ_OK);
+
+        XMQNode *flags = rn.node;
+        vector<string> sorted_flags = driverInfo()->sortedFlags();
+        for (string s : sorted_flags)
+        {
+            string info = driverInfo()->getFlagInfo(s);
+            xmqAddKeyValue(doc, flags, s.c_str(), info.c_str(), NS_PARENT);
+        }
     }
 
     if (getAddTelegramStructured())
@@ -3596,4 +3607,15 @@ void MeterCommonImplementation::setMeterManager(MeterManager *mm)
 MeterManager *MeterCommonImplementation::meterManager()
 {
     return meter_manager_;
+}
+
+vector<string> DriverInfo::sortedFlags()
+{
+    std::vector<std::string> sorted_flags;
+    for (auto &p : flags_)
+    {
+        sorted_flags.push_back(p.first);
+    }
+    sort(sorted_flags.begin(), sorted_flags.end());
+    return sorted_flags;
 }

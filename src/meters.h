@@ -194,6 +194,7 @@ public:
     bool hasFlagsInDriver() { return has_flags_in_driver_; }
     void addFlag(const std::string &name, const std::string &info) { if (flags_.count(name) == 0) flags_[name] = info; }
     bool hasFlag(const std::string &name) { return flags_.count(name) > 0; }
+    std::vector<std::string> sortedFlags();
     std::string getFlagInfo(const std::string &name) { if (flags_.count(name) == 0) return ""; return flags_[name]; }
     void addDefaultKey(const std::vector<uchar> &key) { default_keys_.push_back(key); }
     const std::vector<std::vector<uchar>> &defaultKeys() const { return default_keys_; }
