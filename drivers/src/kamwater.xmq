@@ -59,27 +59,27 @@ driver {
         }
         flag {
             name = TAMPER
-            info = ''
+            info = 'Attempt of fraud. The meter is no longer valid for billing.'
         }
         flag {
             name = LOW_BATTERY
-            info = ''
+            info = 'The battery is running low. Less than 6 months remaining.'
         }
         flag {
             name = FLOW_ABOVE_Q4
-            info = ''
+            info = 'The water flow has exceeded the upper flow limit Q4 which can cause too high error rate.'
         }
         flag {
             name = NO_CONSUMPTION
-            info = ''
+            info = 'No flow of water has occurred for the last 15 days.'
         }
         flag {
-            name = LOW_AMBIENT_TEMPERATURE
-            info = ''
+           name = LOW_AMBIENT_TEMPERATURE
+           info = 'The ambient temperature is below the configured lower temperature limit.'
         }
         flag {
             name = HIGH_AMBIENT_TEMPERATURE
-            info = ''
+            info = 'The ambient temperature is above the configured upper temperature limit.'
         }
     }
     templates {
