@@ -37,6 +37,8 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <thread>
+#include <fstream>
+#include <fcntl.h>
 
 #include"crypto/aes.h"
 #include"crypto/aescmac.h"
@@ -55,6 +57,7 @@ bool verbose_ = false;
 
 #define LIST_OF_TESTS \
     X(serial_command) \
+    X(serial_settings_restart) \
     X(addresses) \
     X(dynamic_loading)                        \
     X(crc)            \
@@ -335,14 +338,78 @@ void test_serial_command()
     auto got = receive(settings, expected.size());
     assert(string(got.begin(), got.end()) == expected);
     assert(settings->setSerialSettings(2400, PARITY::EVEN));
-    assert(!settings->setSerialSettings(9600, PARITY::NONE));
+    assert(settings->setSerialSettings(9600, PARITY::NONE));
+    assert(settings->serialSettingsChanged());
+    assert(!settings->send(bytes));
     settings->close();
     assert(settings->setSerialSettings(9600, PARITY::NONE));
     assert(settings->open(false));
+    assert(!settings->serialSettingsChanged());
     expected = "9600/8/n/1/none";
     got = receive(settings, expected.size());
     assert(string(got.begin(), got.end()) == expected);
     settings->close();
+}
+
+void test_serial_settings_restart()
+{
+    {
+        auto validation_manager = createSerialCommunicationManager(0, false);
+        int master = posix_openpt(O_RDWR | O_NOCTTY);
+        assert(master >= 0 && grantpt(master) == 0 && unlockpt(master) == 0);
+        Detected tty_detected;
+        tty_detected.setAsFound("", DEVICE_RAWTTY, 2400, false, {});
+        tty_detected.found_file = ptsname(master);
+        auto tty_bus = openRawTTY(tty_detected, validation_manager, nullptr);
+        assert(tty_bus->serial()->working());
+        int fd = tty_bus->serial()->fd();
+        assert(!tty_bus->setSerialSettings(14400, PARITY::EVEN));
+        assert(tty_bus->serial()->fd() == fd && tty_bus->isWorking());
+        assert(!tty_bus->serial()->serialSettingsChanged());
+        close(master); // Simulate the TTY disappearing before a reopen.
+        assert(!tty_bus->setSerialSettings(9600, PARITY::EVEN));
+        assert(!tty_bus->isWorking() && tty_bus->serial()->isClosed());
+        assert(!tty_bus->serial()->resetting());
+    }
+    char logfile[] = "/tmp/wmbusmeters-cmd-XXXXXX";
+    int logfd = mkstemp(logfile);
+    assert(logfd >= 0);
+    close(logfd);
+    auto manager = createSerialCommunicationManager(0, true);
+    auto serial = manager->createSerialDeviceCommand("test_restart", "/bin/sh",
+                 {"-c", "exec sh tests/cmd_cul.sh"}, {string("CMD_TEST_LOG=") + logfile}, "test", true);
+    Detected detected;
+    LinkModeSet lms;
+    lms.addLinkMode(LinkMode::T1);
+    detected.setAsFound("", DEVICE_CUL, 38400, false, lms);
+    auto bus = openCUL(detected, manager, serial);
+    manager->startEventLoop();
+    bus->setLinkModes(lms);
+    auto sessions = [&]() {
+        ifstream input(logfile);
+        vector<string> result;
+        string line;
+        while (getline(input, line)) result.push_back(line);
+        return result;
+    };
+    auto initial = sessions();
+    assert(initial.size() == 1 && initial[0].find("38400/n/") == 0);
+    assert(bus->setSerialSettings(38400, PARITY::NONE));
+    assert(sessions() == initial); // Same settings must not restart.
+    assert(bus->setSerialSettings(9600, PARITY::EVEN));
+    auto changed = sessions();
+    assert(changed.size() == 2 && changed[1].find("9600/e/") == 0);
+    assert(changed[0].substr(changed[0].rfind('/')) != changed[1].substr(changed[1].rfind('/')));
+    assert(!serial->serialSettingsChanged() && bus->isWorking());
+    assert(bus->setSerialSettings(9600, PARITY::EVEN));
+    assert(sessions() == changed);
+    assert(bus->reset()); // Normal resets retain the latest settings.
+    auto reset = sessions();
+    assert(reset.size() == 3 && reset[2].find("9600/e/") == 0);
+    bus->close();
+    manager->stop();
+    manager->waitForStop();
+    unlink(logfile);
 }
 
 bool tst_parse(const char *data, std::unordered_map<std::string,std::pair<int,DVEntry>> *dv_entries, int testnr)

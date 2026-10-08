@@ -1,7 +1,9 @@
 #!/bin/sh
 # Copyright (C) 2026 Felix Göhringer (gpl-3.0-or-later)
 # Respond only after receiving the CUL initialization commands on stdin.
-if [ -n "$SERIAL_BPS" ]; then
+if [ -n "$CMD_TEST_LOG" ]; then
+    printf '%s/%s/%s\n' "$SERIAL_BPS" "$SERIAL_PARITY" "$$" >> "$CMD_TEST_LOG"
+elif [ -n "$SERIAL_BPS" ]; then
     [ "$SERIAL_BPS/$SERIAL_BITS/$SERIAL_PARITY/$SERIAL_STOPBITS/$SERIAL_FLOW" = "38400/8/n/1/none" ] || exit 5
 fi
 IFS= read -r mode || exit 1

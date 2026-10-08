@@ -27,6 +27,14 @@ the speed. Other dongles use the same fixed baud rate as their local TTY path.
 Commands such as rtlwmbus remain read-only producers and do not get serial
 settings. XMQTTY does not define physical serial settings.
 
+When a polled M-Bus meter specifies its own baud rate, wmbusmeters applies it
+before sending the poll. Meters without a baud override use the original bus
+baud rate, even after another meter changed it. A change restarts CMD with the new environment and
+runs the normal bus initialization again. Repeating the same settings does
+not restart the command. Scheduled resets and recovery also start a fresh
+command with the current settings. Payload sends are blocked while a settings
+change still needs a reopen.
+
 The example uses plain TCP. For a protected connection, configure gensio's TLS
 layer and certificate verification to match the bridge. TLS and RFC2217 are
 handled by gensiot. Startup settings require the gensio changes integrated in
