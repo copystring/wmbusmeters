@@ -209,8 +209,6 @@ private:
 
 shared_ptr<BusDevice> openRC1180(Detected detected, shared_ptr<SerialCommunicationManager> manager, shared_ptr<SerialDevice> serial_override)
 {
-    assert(detected.found_file != "");
-
     string bus_alias = detected.specified_device.bus_alias;
     string device = detected.found_file;
 

@@ -467,6 +467,7 @@ SerialDeviceCommand::~SerialDeviceCommand()
 
 bool SerialDeviceCommand::open(bool fail_if_not_ok)
 {
+    LOCK_WRITE_SERIAL(opencmd);
     if (!bidirectional_) expectAscii();
     bool ok = invokeBackgroundShell(command_, args_, envs_, &fd_, &pid_, bidirectional_);
     if (!ok) return false;
@@ -476,6 +477,7 @@ bool SerialDeviceCommand::open(bool fail_if_not_ok)
 
 void SerialDeviceCommand::close()
 {
+    LOCK_WRITE_SERIAL(closecmd);
     int p = pid_, f = fd_;
     if (pid_ == 0 && fd_ == -1) return;
     if (pid_ && stillRunning(pid_))
