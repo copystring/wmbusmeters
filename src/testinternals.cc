@@ -36,6 +36,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <thread>
 
 #include"crypto/aes.h"
 #include"crypto/aescmac.h"
@@ -274,6 +275,34 @@ void test_serial_command()
         assert(sd->isClosed());
         assert(!sd->send(bytes));
     }
+
+    // Close callbacks must run without the serial write lock. Otherwise
+    // they can deadlock with manager shutdown or a sender on another thread.
+    pid_t callback_probe = fork();
+    assert(callback_probe >= 0);
+    if (callback_probe == 0)
+    {
+        assert(sd->open(false));
+        manager->onDisappear(sd.get(), [&]() {
+            thread sender([&]() { assert(!sd->send(bytes)); });
+            sender.join();
+        });
+        sd->close();
+        _exit(0);
+    }
+    int callback_status = 0;
+    pid_t finished = 0;
+    for (int tries = 0; !finished && tries < 100; tries++)
+    {
+        finished = waitpid(callback_probe, &callback_status, WNOHANG);
+        if (!finished) usleep(50000);
+    }
+    if (!finished)
+    {
+        kill(callback_probe, SIGKILL);
+        waitpid(callback_probe, &callback_status, 0);
+    }
+    assert(finished == callback_probe && WIFEXITED(callback_status) && WEXITSTATUS(callback_status) == 0);
 
     // A dead peer must return a send error, not terminate us with SIGPIPE.
     auto dead = manager->createSerialDeviceCommand("test_dead", "/bin/sh",

@@ -477,22 +477,23 @@ bool SerialDeviceCommand::open(bool fail_if_not_ok)
 
 void SerialDeviceCommand::close()
 {
-    LOCK_WRITE_SERIAL(closecmd);
-    int p = pid_, f = fd_;
-    if (pid_ == 0 && fd_ == -1) return;
-    if (pid_ && stillRunning(pid_))
+    int p, f;
     {
-        stopBackgroundShell(pid_);
+        LOCK_WRITE_SERIAL(closecmd);
+        p = pid_; f = fd_;
+        if (pid_ == 0 && fd_ == -1) return;
+        if (pid_ && stillRunning(pid_)) stopBackgroundShell(pid_);
+        pid_ = 0;
+        ::close(fd_);
+        fd_ = -1;
     }
-    pid_ = 0;
+    // Never invoke callbacks or take manager locks while holding the write
+    // lock: manager shutdown takes its device-list lock before closing us.
     if (on_disappear_ && !resetting_)
     {
         on_disappear_();
         on_disappear_ = NULL;
     }
-    ::close(fd_);
-    fd_ = -1;
-
     manager_->tickleEventLoop();
 
     verbose("(serialcmd) closed %s pid=%d fd=%d (%s)\n", command_.c_str(), p, f, purpose_.c_str());
