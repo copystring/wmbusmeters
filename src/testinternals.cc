@@ -323,6 +323,26 @@ void test_serial_command()
     assert(!producer->send(bytes));
     assert(receive(producer, 1) == vector<uchar>({'x'}));
     producer->close();
+
+    // Device settings win over an inherited/custom SERIAL_* environment.
+    auto settings = manager->createSerialDeviceCommand("test_settings", "/bin/sh",
+        {"-c", "printf '%s/%s/%s/%s/%s' \"$SERIAL_BPS\" \"$SERIAL_BITS\" \"$SERIAL_PARITY\" \"$SERIAL_STOPBITS\" \"$SERIAL_FLOW\"; exec cat"},
+        {"SERIAL_BPS=999"}, "test", true);
+    assert(!settings->setSerialSettings(0, PARITY::NONE));
+    assert(settings->setSerialSettings(2400, PARITY::EVEN));
+    assert(settings->open(false));
+    string expected = "2400/8/e/1/none";
+    auto got = receive(settings, expected.size());
+    assert(string(got.begin(), got.end()) == expected);
+    assert(settings->setSerialSettings(2400, PARITY::EVEN));
+    assert(!settings->setSerialSettings(9600, PARITY::NONE));
+    settings->close();
+    assert(settings->setSerialSettings(9600, PARITY::NONE));
+    assert(settings->open(false));
+    expected = "9600/8/n/1/none";
+    got = receive(settings, expected.size());
+    assert(string(got.begin(), got.end()) == expected);
+    settings->close();
 }
 
 bool tst_parse(const char *data, std::unordered_map<std::string,std::pair<int,DVEntry>> *dv_entries, int testnr)

@@ -429,6 +429,7 @@ struct SerialDeviceCommand : public SerialDeviceImp
     bool working();
     string device() { return identifier_; }
     bool readonly() { return !bidirectional_; }
+    bool setSerialSettings(int bps, PARITY parity);
     string command() { return command_; }
 
     private:
@@ -437,6 +438,8 @@ struct SerialDeviceCommand : public SerialDeviceImp
     string command_;
     int pid_ {};
     bool bidirectional_ {};
+    int bps_ {};
+    PARITY parity_ = PARITY::NONE;
     vector<string> args_;
     vector<string> envs_;
 
@@ -469,9 +472,29 @@ bool SerialDeviceCommand::open(bool fail_if_not_ok)
 {
     LOCK_WRITE_SERIAL(opencmd);
     if (!bidirectional_) expectAscii();
-    bool ok = invokeBackgroundShell(command_, args_, envs_, &fd_, &pid_, bidirectional_);
+    vector<string> envs = envs_;
+    if (bidirectional_ && bps_ > 0)
+    {
+        envs.push_back("SERIAL_BPS=" + to_string(bps_));
+        envs.push_back("SERIAL_BITS=8");
+        envs.push_back(string("SERIAL_PARITY=") + (parity_ == PARITY::EVEN ? "e" : parity_ == PARITY::ODD ? "o" : "n"));
+        envs.push_back("SERIAL_STOPBITS=1");
+        envs.push_back("SERIAL_FLOW=none");
+    }
+    bool ok = invokeBackgroundShell(command_, args_, envs, &fd_, &pid_, bidirectional_);
     if (!ok) return false;
     verbose("(serialcmd) opened %s pid %d fd %d (%s)\n", command_.c_str(), pid_, fd_, purpose_.c_str());
+    return true;
+}
+
+bool SerialDeviceCommand::setSerialSettings(int bps, PARITY parity)
+{
+    LOCK_WRITE_SERIAL(settingscmd);
+    if (!bidirectional_) return true;
+    if (bps <= 0) return false;
+    if (fd_ >= 0 && (bps != bps_ || parity != parity_)) return false;
+    bps_ = bps;
+    parity_ = parity;
     return true;
 }
 
