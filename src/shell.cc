@@ -147,9 +147,24 @@ bool invokeBackgroundShell(string program, vector<string> args, vector<string> e
         delete[] p;
         return false;
     }
-    // Do not leak a parent's channel into a later command.
-    fcntl(link[0], F_SETFD, FD_CLOEXEC);
-    fcntl(link[1], F_SETFD, FD_CLOEXEC);
+    // Keep both endpoints away from stdio before dup2 in the child, even
+    // when the caller has closed stdin/stdout/stderr. Also prevent leaks
+    // into subsequently executed commands.
+    for (int j = 0; j < 2; j++) {
+        if (link[j] < 3) {
+            int moved = fcntl(link[j], F_DUPFD, 3);
+            if (moved < 0) {
+                close(link[0]); close(link[1]); delete[] p;
+                return false;
+            }
+            close(link[j]);
+            link[j] = moved;
+        }
+        if (fcntl(link[j], F_SETFD, FD_CLOEXEC) < 0) {
+            close(link[0]); close(link[1]); delete[] p;
+            return false;
+        }
+    }
 #ifdef SO_NOSIGPIPE
     if (bidirectional) {
         int on = 1;

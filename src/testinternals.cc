@@ -24,6 +24,7 @@
 #include"meters.h"
 #include"printer.h"
 #include"serial.h"
+#include"shell.h"
 #include"translatebits.h"
 #include"util.h"
 #include"wmbus.h"
@@ -33,6 +34,8 @@
 #include"xmq.h"
 #include <poll.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
 
 #include"crypto/aes.h"
 #include"crypto/aescmac.h"
@@ -211,6 +214,34 @@ void test_crc()
 
 void test_serial_command()
 {
+    // Closed standard descriptors must not alias the socketpair endpoints.
+    pid_t probe = fork();
+    assert(probe >= 0);
+    if (probe == 0)
+    {
+        close(0); close(1); close(2);
+        int fd, pid;
+        if (!invokeBackgroundShell("/bin/sh", {"-c", "exec cat"}, {}, &fd, &pid, true)) _exit(1);
+        uchar sent[] = {0, 255, 128, 10};
+        if (::send(fd, sent, sizeof(sent), 0) != sizeof(sent)) _exit(2);
+        struct pollfd pfd = { fd, POLLIN, 0 };
+        if (poll(&pfd, 1, 2000) != 1) _exit(3);
+        uchar got[sizeof(sent)];
+        size_t count = 0;
+        while (count < sizeof(got))
+        {
+            int n = read(fd, got+count, sizeof(got)-count);
+            if (n <= 0) _exit(4);
+            count += n;
+        }
+        stopBackgroundShell(pid);
+        close(fd);
+        _exit(memcmp(sent, got, sizeof(sent)) == 0 ? 0 : 5);
+    }
+    int status;
+    assert(waitpid(probe, &status, 0) == probe);
+    assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+
     auto manager = createSerialCommunicationManager(0, false);
     auto receive = [](shared_ptr<SerialDevice> sd, size_t size) {
         vector<uchar> result;
