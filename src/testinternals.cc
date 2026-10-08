@@ -31,6 +31,8 @@
 #include"wmbus_iu891a.h"
 #include"dvparser.h"
 #include"xmq.h"
+#include <poll.h>
+#include <unistd.h>
 
 #include"crypto/aes.h"
 #include"crypto/aescmac.h"
@@ -48,6 +50,7 @@ using namespace std;
 bool verbose_ = false;
 
 #define LIST_OF_TESTS \
+    X(serial_command) \
     X(addresses) \
     X(dynamic_loading)                        \
     X(crc)            \
@@ -204,6 +207,62 @@ void test_crc()
     if (crc != 0xc2b7) {
         printf("ERROR! %4x should be c2b7\n", crc);
     }
+}
+
+void test_serial_command()
+{
+    auto manager = createSerialCommunicationManager(0, false);
+    auto receive = [](shared_ptr<SerialDevice> sd, size_t size) {
+        vector<uchar> result;
+        for (int tries = 0; result.size() < size && tries < 50; tries++)
+        {
+            struct pollfd pfd = { sd->fd(), POLLIN, 0 };
+            if (poll(&pfd, 1, 100) <= 0) continue;
+            vector<uchar> part;
+            sd->receive(&part);
+            result.insert(result.end(), part.begin(), part.end());
+        }
+        return result;
+    };
+
+    vector<uchar> bytes;
+    for (int i = 0; i < 4096; i++) bytes.push_back(i & 255);
+    auto sd = manager->createSerialDeviceCommand("test_cmd", "/bin/sh",
+                 {"-c", "printf 'serial command diagnostic\\n' >&2; exec cat"}, {}, "test", true);
+    assert(!sd->readonly());
+    for (int session = 0; session < 3; session++)
+    {
+        assert(sd->open(false));
+        for (int i = 0; i < 8; i++)
+        {
+            assert(sd->send(bytes));
+            assert(receive(sd, bytes.size()) == bytes);
+        }
+        sd->close();
+        sd->close();
+        assert(sd->isClosed());
+        assert(!sd->send(bytes));
+    }
+
+    // A dead peer must return a send error, not terminate us with SIGPIPE.
+    auto dead = manager->createSerialDeviceCommand("test_dead", "/bin/sh",
+                 {"-c", "printf x"}, {}, "test", true);
+    assert(dead->open(false));
+    // Let the child exit without consuming stdout, then test the send path.
+    usleep(200000);
+    assert(!dead->send(bytes));
+    assert(receive(dead, 1) == vector<uchar>({'x'}));
+    assert(dead->isClosed());
+    dead->close();
+
+    // Producer commands still have the existing read-only contract.
+    auto producer = manager->createSerialDeviceCommand("test_producer", "/bin/sh",
+                 {"-c", "printf x"}, {}, "test");
+    assert(producer->readonly());
+    assert(producer->open(false));
+    assert(!producer->send(bytes));
+    assert(receive(producer, 1) == vector<uchar>({'x'}));
+    producer->close();
 }
 
 bool tst_parse(const char *data, std::unordered_map<std::string,std::pair<int,DVEntry>> *dv_entries, int testnr)
